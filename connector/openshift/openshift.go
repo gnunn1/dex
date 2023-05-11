@@ -194,9 +194,33 @@ func (c *openshiftConnector) Refresh(ctx context.Context, s connector.Scopes,
 	return c.identity(ctx, s, &token)
 }
 
+func (c *openshiftConnector) TokenIdentity(ctx context.Context, subjectTokenType, subjectToken string) (connector.Identity, error) {
+
+	c.logger.Infof("SubjectToken is %s", subjectToken)
+	//var identity connector.Identity
+	token := &oauth2.Token{
+		AccessToken: subjectToken,
+	}
+	if subjectTokenType == "urn:ietf:params:oauth:token-type:access_token" {
+		token = token.WithExtra(map[string]any{
+			"id_token": subjectToken,
+		})
+	}
+
+	var s connector.Scopes
+	//s.Groups = true;
+	//s.OfflineAccess = true
+
+	return c.identity(ctx, s, token)
+}
+
 func (c *openshiftConnector) identity(ctx context.Context, s connector.Scopes,
 	token *oauth2.Token,
 ) (identity connector.Identity, err error) {
+
+	// use the httpClient that we created for CA configuration
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.httpClient)
+
 	client := c.oauth2Config.Client(ctx, token)
 	user, err := c.user(ctx, client)
 	if err != nil {
